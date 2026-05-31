@@ -1,0 +1,14 @@
+{
+  "name": "Campaign Finance Check",
+  "description": "Search FEC individual contribution records by employer, zip code, or candidate.",
+  "data_source": "Federal Election Commission (FEC) Bulk Data",
+  "data_url": "https://www.fec.gov/data/browse-data/?tab=bulk-data",
+  "cycle": "2023-2024",
+  "total_contributions": 55509242,
+  "total_amount": 15649406881.0,
+  "unique_employers": 885812,
+  "unique_zip_codes": 42002,
+  "unique_recipients": 9239,
+  "data_freshness": "Updated nightly by FEC. Pipeline last run captures point-in-time snapshot.",
+  "pipeline_version": "1.0.0"
+}

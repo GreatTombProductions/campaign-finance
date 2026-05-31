@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campaign Finance Check — Who's Funding Your Representatives?</title>
+    <meta name="description" content="Search FEC campaign contribution records by employer, zip code, or candidate. Every donation over $200 is public record.">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #141414;
+            --surface2: #1e1e1e;
+            --border: #2a2a2a;
+            --text: #e0e0e0;
+            --text-dim: #888;
+            --accent: #4a9eff;
+            --accent-dim: #2a6ab5;
+            --red: #ff4a4a;
+            --green: #4aff7a;
+            --blue: #4a9eff;
+            --purple: #b04aff;
+            --yellow: #ffd54a;
+            --dem: #3d7de0;
+            --rep: #e04040;
+            --ind: #a0a0a0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        h1 {
+            font-size: 1.5em;
+            margin-bottom: 4px;
+            color: var(--accent);
+        }
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 0.85em;
+            margin-bottom: 24px;
+        }
+        .subtitle a { color: var(--accent-dim); text-decoration: none; }
+        .subtitle a:hover { text-decoration: underline; }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+            padding: 12px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.8em;
+        }
+        .stat-item { color: var(--text-dim); }
+        .stat-item strong { color: var(--text); }
+
+        /* Search mode tabs */
+        .tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 16px;
+        }
+        .tab {
+            padding: 8px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+        .tab:first-child { border-radius: 6px 0 0 6px; }
+        .tab:last-child { border-radius: 0 6px 6px 0; }
+        .tab.active {
+            background: var(--accent-dim);
+            color: white;
+            border-color: var(--accent);
+        }
+        .tab:hover:not(.active) { background: var(--surface2); }
+
+        /* Search */
+        .search-box {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .search-box input {
+            flex: 1;
+            padding: 10px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 1em;
+            outline: none;
+        }
+        .search-box input:focus { border-color: var(--accent); }
+        .search-box input::placeholder { color: var(--text-dim); }
+
+        /* Results */
+        .results { margin-top: 16px; }
+        .result-count {
+            font-size: 0.8em;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+        }
+        .result-item {
+            padding: 12px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .result-item:hover { border-color: var(--accent-dim); }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .result-name { font-weight: 600; font-size: 0.95em; }
+        .result-amount { color: var(--green); font-weight: 600; }
+        .result-meta { font-size: 0.8em; color: var(--text-dim); }
+
+        /* Detail panel */
+        .detail-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 16px;
+        }
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        .detail-title { font-size: 1.2em; font-weight: 600; }
+        .detail-total { font-size: 1.4em; color: var(--green); font-weight: 700; }
+        .detail-subtitle { font-size: 0.85em; color: var(--text-dim); margin-top: 4px; }
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 1.2em;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        .close-btn:hover { color: var(--text); }
+
+        .detail-section { margin-top: 16px; }
+        .detail-section h3 {
+            font-size: 0.85em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 4px;
+        }
+
+        .recipient-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            font-size: 0.85em;
+            border-bottom: 1px solid var(--border);
+        }
+        .recipient-row:last-child { border-bottom: none; }
+        .recipient-name { flex: 1; }
+        .recipient-party {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 0.75em;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .party-dem { background: var(--dem); color: white; }
+        .party-rep { background: var(--rep); color: white; }
+        .party-ind { background: var(--ind); color: white; }
+        .party-other { background: var(--border); color: var(--text-dim); }
+        .recipient-amount { color: var(--green); font-weight: 500; margin-left: 12px; min-width: 80px; text-align: right; }
+        .recipient-count { color: var(--text-dim); margin-left: 8px; min-width: 60px; text-align: right; }
+
+        .donor-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            font-size: 0.85em;
+            border-bottom: 1px solid var(--border);
+        }
+        .donor-row:last-child { border-bottom: none; }
+        .donor-info { flex: 1; }
+        .donor-employer { color: var(--text-dim); font-size: 0.85em; }
+
+        .state-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 3px 0;
+            font-size: 0.8em;
+        }
+        .state-label { min-width: 30px; font-weight: 600; }
+        .state-fill {
+            height: 14px;
+            background: var(--accent-dim);
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-dim);
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Info box */
+        .info-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+            margin-top: 24px;
+            font-size: 0.85em;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+        .info-box h3 {
+            color: var(--text);
+            margin-bottom: 8px;
+            font-size: 0.95em;
+        }
+        .info-box ul {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        .info-box li { margin: 4px 0; }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+            font-size: 0.75em;
+            color: var(--text-dim);
+            text-align: center;
+        }
+        .footer a { color: var(--accent-dim); text-decoration: none; }
+
+        @media (max-width: 600px) {
+            .container { padding: 12px; }
+            h1 { font-size: 1.2em; }
+            .stats-bar { flex-direction: column; gap: 8px; }
+            .tabs { flex-wrap: wrap; }
+            .tab { flex: 1; text-align: center; min-width: 80px; }
+            .result-header { flex-direction: column; align-items: flex-start; gap: 4px; }
+            .detail-header { flex-direction: column; }
+            .recipient-row { flex-wrap: wrap; gap: 4px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Campaign Finance Check</h1>
+        <p class="subtitle">
+            Search FEC individual contribution records. Every donation over $200 is public record.
+            <br>Source: <a href="https://www.fec.gov/data/browse-data/?tab=bulk-data" target="_blank" rel="noopener">Federal Election Commission</a> · 2023-2024 election cycle
+        </p>
+
+        <div id="stats-bar" class="stats-bar">
+            <span class="stat-item">Loading...</span>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-mode="employer" onclick="setMode('employer')">By Employer</div>
+            <div class="tab" data-mode="zip" onclick="setMode('zip')">By Zip Code</div>
+            <div class="tab" data-mode="recipient" onclick="setMode('recipient')">By Candidate</div>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="search" placeholder="Search by employer name..." autocomplete="off" autofocus>
+        </div>
+
+        <div id="results" class="results"></div>
+        <div id="detail" style="display:none;"></div>
+
+        <div class="info-box" id="info-box">
+            <h3>About This Data</h3>
+            <p>
+                The Federal Election Commission requires disclosure of all individual contributions
+                over $200 to federal candidates, parties, and political action committees.
+                This tool makes that data searchable.
+            </p>
+            <ul>
+                <li><strong>By Employer</strong> — See where employees of a company direct their political donations</li>
+                <li><strong>By Zip Code</strong> — See the top political donors in any zip code</li>
+                <li><strong>By Candidate</strong> — See who's funding a candidate and from which industries</li>
+            </ul>
+            <p style="margin-top: 8px;">
+                All data is from publicly available FEC bulk downloads.
+                This is a static lookup tool — no data is collected, no searches are tracked.
+            </p>
+        </div>
+
+        <div class="footer">
+            Data: FEC 2023-2024 cycle · No tracking · No cookies ·
+            <a href="https://github.com/GreatTombProductions" target="_blank" rel="noopener">GreatTombProductions</a>
+        </div>
+    </div>
+
+    <script>
+    const BASE = '';
+    let mode = 'employer';
+    let cache = {};
+    let debounceTimer;
+    let meta = {};
+
+    // Format currency
+    function fmt(n) {
+        if (n >= 1e9) return '$' + (n / 1e9).toFixed(1) + 'B';
+        if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+        if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+        return '$' + n.toFixed(0);
+    }
+
+    function fmtFull(n) {
+        return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
+
+    function partyClass(p) {
+        if (!p) return 'party-other';
+        p = p.toUpperCase();
+        if (p === 'DEM') return 'party-dem';
+        if (p === 'REP') return 'party-rep';
+        if (p === 'IND' || p === 'LIB' || p === 'GRE') return 'party-ind';
+        return 'party-other';
+    }
+
+    function partyLabel(p) {
+        if (!p) return '';
+        const map = { DEM: 'D', REP: 'R', IND: 'I', LIB: 'L', GRE: 'G', NNE: '', UNK: '' };
+        return map[p.toUpperCase()] || p;
+    }
+
+    function officeLabel(o) {
+        if (!o) return '';
+        const map = { H: 'House', S: 'Senate', P: 'President' };
+        return map[o] || o;
+    }
+
+    // MD5 for detail shard lookup (simple implementation)
+    async function md5(str) {
+        const data = new TextEncoder().encode(str);
+        const hash = await crypto.subtle.digest('SHA-256', data);
+        // Use first 2 hex chars of SHA-256 as shard (matches pipeline's md5[:2])
+        // Actually we need real MD5 for compatibility with Python pipeline
+        return md5sync(str);
+    }
+
+    // Simple MD5 implementation for shard computation
+    function md5sync(string) {
+        function md5cycle(x, k) {
+            var a = x[0], b = x[1], c = x[2], d = x[3];
+            a += (b & c | ~b & d) + k[0] - 680876936 | 0;
+            a  = (a << 7 | a >>> 25) + b | 0;
+            d += (a & b | ~a & c) + k[1] - 389564586 | 0;
+            d  = (d << 12 | d >>> 20) + a | 0;
+            c += (d & a | ~d & b) + k[2] + 606105819 | 0;
+            c  = (c << 17 | c >>> 15) + d | 0;
+            b += (c & d | ~c & a) + k[3] - 1044525330 | 0;
+            b  = (b << 22 | b >>> 10) + c | 0;
+            a += (b & c | ~b & d) + k[4] - 176418897 | 0;
+            a  = (a << 7 | a >>> 25) + b | 0;
+            d += (a & b | ~a & c) + k[5] + 1200080426 | 0;
+            d  = (d << 12 | d >>> 20) + a | 0;
+            c += (d & a | ~d & b) + k[6] - 1473231341 | 0;
+            c  = (c << 17 | c >>> 15) + d | 0;
+            b += (c & d | ~c & a) + k[7] - 45705983 | 0;
+            b  = (b << 22 | b >>> 10) + c | 0;
+            a += (b & c | ~b & d) + k[8] + 1770035416 | 0;
+            a  = (a << 7 | a >>> 25) + b | 0;
+            d += (a & b | ~a & c) + k[9] - 1958414417 | 0;
+            d  = (d << 12 | d >>> 20) + a | 0;
+            c += (d & a | ~d & b) + k[10] - 42063 | 0;
+            c  = (c << 17 | c >>> 15) + d | 0;
+            b += (c & d | ~c & a) + k[11] - 1990404162 | 0;
+            b  = (b << 22 | b >>> 10) + c | 0;
+            a += (b & c | ~b & d) + k[12] + 1804603682 | 0;
+            a  = (a << 7 | a >>> 25) + b | 0;
+            d += (a & b | ~a & c) + k[13] - 40341101 | 0;
+            d  = (d << 12 | d >>> 20) + a | 0;
+            c += (d & a | ~d & b) + k[14] - 1502002290 | 0;
+            c  = (c << 17 | c >>> 15) + d | 0;
+            b += (c & d | ~c & a) + k[15] + 1236535329 | 0;
+            b  = (b << 22 | b >>> 10) + c | 0;
+            a += (b & d | c & ~d) + k[1] - 165796510 | 0;
+            a  = (a << 5 | a >>> 27) + b | 0;
+            d += (a & c | b & ~c) + k[6] - 1069501632 | 0;
+            d  = (d << 9 | d >>> 23) + a | 0;
+            c += (d & b | a & ~b) + k[11] + 643717713 | 0;
+            c  = (c << 14 | c >>> 18) + d | 0;
+            b += (c & a | d & ~a) + k[0] - 373897302 | 0;
+            b  = (b << 20 | b >>> 12) + c | 0;
+            a += (b & d | c & ~d) + k[5] - 701558691 | 0;
+            a  = (a << 5 | a >>> 27) + b | 0;
+            d += (a & c | b & ~c) + k[10] + 38016083 | 0;
+            d  = (d << 9 | d >>> 23) + a | 0;
+            c += (d & b | a & ~b) + k[15] - 660478335 | 0;
+            c  = (c << 14 | c >>> 18) + d | 0;
+            b += (c & a | d & ~a) + k[4] - 405537848 | 0;
+            b  = (b << 20 | b >>> 12) + c | 0;
+            a += (b & d | c & ~d) + k[9] + 568446438 | 0;
+            a  = (a << 5 | a >>> 27) + b | 0;
+            d += (a & c | b & ~c) + k[14] - 1019803690 | 0;
+            d  = (d << 9 | d >>> 23) + a | 0;
+            c += (d & b | a & ~b) + k[3] - 187363961 | 0;
+            c  = (c << 14 | c >>> 18) + d | 0;
+            b += (c & a | d & ~a) + k[8] + 1163531501 | 0;
+            b  = (b << 20 | b >>> 12) + c | 0;
+            a += (b & d | c & ~d) + k[13] - 1444681467 | 0;
+            a  = (a << 5 | a >>> 27) + b | 0;
+            d += (a & c | b & ~c) + k[2] - 51403784 | 0;
+            d  = (d << 9 | d >>> 23) + a | 0;
+            c += (d & b | a & ~b) + k[7] + 1735328473 | 0;
+            c  = (c << 14 | c >>> 18) + d | 0;
+            b += (c & a | d & ~a) + k[12] - 1926607734 | 0;
+            b  = (b << 20 | b >>> 12) + c | 0;
+            a += (b ^ c ^ d) + k[5] - 378558 | 0;
+            a  = (a << 4 | a >>> 28) + b | 0;
+            d += (a ^ b ^ c) + k[8] - 2022574463 | 0;
+            d  = (d << 11 | d >>> 21) + a | 0;
+            c += (d ^ a ^ b) + k[11] + 1839030562 | 0;
+            c  = (c << 16 | c >>> 16) + d | 0;
+            b += (c ^ d ^ a) + k[14] - 35309556 | 0;
+            b  = (b << 23 | b >>> 9) + c | 0;
+            a += (b ^ c ^ d) + k[1] - 1530992060 | 0;
+            a  = (a << 4 | a >>> 28) + b | 0;
+            d += (a ^ b ^ c) + k[4] + 1272893353 | 0;
+            d  = (d << 11 | d >>> 21) + a | 0;
+            c += (d ^ a ^ b) + k[7] - 155497632 | 0;
+            c  = (c << 16 | c >>> 16) + d | 0;
+            b += (c ^ d ^ a) + k[10] - 1094730640 | 0;
+            b  = (b << 23 | b >>> 9) + c | 0;
+            a += (b ^ c ^ d) + k[13] + 681279174 | 0;
+            a  = (a << 4 | a >>> 28) + b | 0;
+            d += (a ^ b ^ c) + k[0] - 358537222 | 0;
+            d  = (d << 11 | d >>> 21) + a | 0;
+            c += (d ^ a ^ b) + k[3] - 722521979 | 0;
+            c  = (c << 16 | c >>> 16) + d | 0;
+            b += (c ^ d ^ a) + k[6] + 76029189 | 0;
+            b  = (b << 23 | b >>> 9) + c | 0;
+            a += (b ^ c ^ d) + k[9] - 640364487 | 0;
+            a  = (a << 4 | a >>> 28) + b | 0;
+            d += (a ^ b ^ c) + k[12] - 421815835 | 0;
+            d  = (d << 11 | d >>> 21) + a | 0;
+            c += (d ^ a ^ b) + k[15] + 530742520 | 0;
+            c  = (c << 16 | c >>> 16) + d | 0;
+            b += (c ^ d ^ a) + k[2] - 995338651 | 0;
+            b  = (b << 23 | b >>> 9) + c | 0;
+            a += (c ^ (b | ~d)) + k[0] - 198630844 | 0;
+            a  = (a << 6 | a >>> 26) + b | 0;
+            d += (b ^ (a | ~c)) + k[7] + 1126891415 | 0;
+            d  = (d << 10 | d >>> 22) + a | 0;
+            c += (a ^ (d | ~b)) + k[14] - 1416354905 | 0;
+            c  = (c << 15 | c >>> 17) + d | 0;
+            b += (d ^ (c | ~a)) + k[5] - 57434055 | 0;
+            b  = (b << 21 | b >>> 11) + c | 0;
+            a += (c ^ (b | ~d)) + k[12] + 1700485571 | 0;
+            a  = (a << 6 | a >>> 26) + b | 0;
+            d += (b ^ (a | ~c)) + k[3] - 1894986606 | 0;
+            d  = (d << 10 | d >>> 22) + a | 0;
+            c += (a ^ (d | ~b)) + k[10] - 1051523 | 0;
+            c  = (c << 15 | c >>> 17) + d | 0;
+            b += (d ^ (c | ~a)) + k[1] - 2054922799 | 0;
+            b  = (b << 21 | b >>> 11) + c | 0;
+            a += (c ^ (b | ~d)) + k[8] + 1873313359 | 0;
+            a  = (a << 6 | a >>> 26) + b | 0;
+            d += (b ^ (a | ~c)) + k[15] - 30611744 | 0;
+            d  = (d << 10 | d >>> 22) + a | 0;
+            c += (a ^ (d | ~b)) + k[6] - 1560198380 | 0;
+            c  = (c << 15 | c >>> 17) + d | 0;
+            b += (d ^ (c | ~a)) + k[13] + 1309151649 | 0;
+            b  = (b << 21 | b >>> 11) + c | 0;
+            a += (c ^ (b | ~d)) + k[4] - 145523070 | 0;
+            a  = (a << 6 | a >>> 26) + b | 0;
+            d += (b ^ (a | ~c)) + k[11] - 1120210379 | 0;
+            d  = (d << 10 | d >>> 22) + a | 0;
+            c += (a ^ (d | ~b)) + k[2] + 718787259 | 0;
+            c  = (c << 15 | c >>> 17) + d | 0;
+            b += (d ^ (c | ~a)) + k[9] - 343485551 | 0;
+            b  = (b << 21 | b >>> 11) + c | 0;
+            x[0] = a + x[0] | 0;
+            x[1] = b + x[1] | 0;
+            x[2] = c + x[2] | 0;
+            x[3] = d + x[3] | 0;
+        }
+
+        function md5blk(s) {
+            var md5blks = [], i;
+            for (i = 0; i < 64; i += 4) {
+                md5blks[i >> 2] = s.charCodeAt(i) + (s.charCodeAt(i+1) << 8) + (s.charCodeAt(i+2) << 16) + (s.charCodeAt(i+3) << 24);
+            }
+            return md5blks;
+        }
+
+        function md5blk_array(a) {
+            var md5blks = [], i;
+            for (i = 0; i < 64; i += 4) {
+                md5blks[i >> 2] = a[i] + (a[i+1] << 8) + (a[i+2] << 16) + (a[i+3] << 24);
+            }
+            return md5blks;
+        }
+
+        var hex_chr = '0123456789abcdef'.split('');
+        function rhex(n) {
+            var s = '', j;
+            for (j = 0; j < 4; j++)
+                s += hex_chr[(n >> (j * 8 + 4)) & 0x0F] + hex_chr[(n >> (j * 8)) & 0x0F];
+            return s;
+        }
+
+        function hex(x) {
+            for (var i = 0; i < x.length; i++) x[i] = rhex(x[i]);
+            return x.join('');
+        }
+
+        var toUtf8 = function(s) {
+            // Encode to UTF-8 byte array
+            var enc = new TextEncoder();
+            return enc.encode(s);
+        };
+
+        function md5str(s) {
+            return hex(md5arr(toUtf8(s)));
+        }
+
+        function md5arr(uint8) {
+            var n = uint8.length;
+            var state = [1732584193, -271733879, -1732584194, 271733878], i;
+            var tail = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0];
+            for (i = 64; i <= n; i += 64) {
+                var block = uint8.slice(i - 64, i);
+                md5cycle(state, md5blk_array(block));
+            }
+            var rem = uint8.slice(i - 64);
+            var remLen = rem.length;
+            // Build tail with padding
+            var arr = new Array(64).fill(0);
+            for (var j = 0; j < remLen; j++) arr[j] = rem[j];
+            arr[remLen] = 0x80;
+            if (remLen > 55) {
+                md5cycle(state, md5blk_array(arr));
+                arr = new Array(64).fill(0);
+            }
+            // Append bit length (low 32 bits, then high 32 bits)
+            var bitLen = n * 8;
+            arr[56] = bitLen & 0xff;
+            arr[57] = (bitLen >>> 8) & 0xff;
+            arr[58] = (bitLen >>> 16) & 0xff;
+            arr[59] = (bitLen >>> 24) & 0xff;
+            // For files < 512MB, high bits are 0
+            md5cycle(state, md5blk_array(arr));
+            return state;
+        }
+
+        return md5str(string).substring(0, 2);
+    }
+
+    // Fetch with cache
+    async function fetchJSON(path) {
+        if (cache[path]) return cache[path];
+        try {
+            const r = await fetch(BASE + '/' + path);
+            if (!r.ok) return null;
+            const d = await r.json();
+            cache[path] = d;
+            return d;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // Initialize
+    async function init() {
+        meta = await fetchJSON('meta.json');
+        if (meta) {
+            document.getElementById('stats-bar').innerHTML = `
+                <span class="stat-item"><strong>${(meta.total_contributions || 0).toLocaleString()}</strong> contributions</span>
+                <span class="stat-item"><strong>${fmt(meta.total_amount || 0)}</strong> total</span>
+                <span class="stat-item"><strong>${(meta.unique_employers || 0).toLocaleString()}</strong> employers</span>
+                <span class="stat-item"><strong>${(meta.unique_recipients || 0).toLocaleString()}</strong> recipients</span>
+                <span class="stat-item">${meta.cycle || '2023-2024'} cycle</span>
+            `;
+        }
+    }
+
+    function setMode(m) {
+        mode = m;
+        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.mode === m));
+        const input = document.getElementById('search');
+        const placeholders = {
+            employer: 'Search by employer name...',
+            zip: 'Enter a 5-digit zip code...',
+            recipient: 'Search by candidate or committee name...'
+        };
+        input.placeholder = placeholders[m];
+        input.value = '';
+        document.getElementById('results').innerHTML = '';
+        document.getElementById('detail').style.display = 'none';
+        input.focus();
+    }
+
+    function normalizeEmployer(s) {
+        return s.toUpperCase().replace(/\b(INC|LLC|LLP|CORP|CO|LTD|LP|PC|PA|PLLC|PLC)\.?\s*$/g, '').replace(/[.,]+$/, '').trim();
+    }
+
+    // Search handlers
+    async function searchEmployer(query) {
+        if (query.length < 2) return;
+        const first = query[0].toLowerCase();
+        const letter = /[a-z]/.test(first) ? first : '_';
+        const data = await fetchJSON(`data/employers/index_${letter}.json`);
+        if (!data) { showResults([]); return; }
+        const q = query.toUpperCase();
+        const matches = data.filter(e => e.n.toUpperCase().includes(q)).slice(0, 50);
+        showResults(matches.map(e => ({
+            name: e.n,
+            amount: e.t,
+            meta: `${e.c.toLocaleString()} contributions`,
+            key: normalizeEmployer(e.n).toLowerCase(),
+            type: 'employer'
+        })));
+    }
+
+    async function searchZip(query) {
+        const zip = query.replace(/\D/g, '').substring(0, 5);
+        if (zip.length < 5) {
+            document.getElementById('results').innerHTML = '<div class="result-count">Enter a 5-digit zip code</div>';
+            return;
+        }
+        const prefix = zip.substring(0, 3);
+        const data = await fetchJSON(`data/zips/${prefix}.json`);
+        if (!data || !data[zip]) {
+            showResults([]);
+            return;
+        }
+        // Show zip detail directly
+        showZipDetail(zip, data[zip]);
+    }
+
+    async function searchRecipient(query) {
+        if (query.length < 2) return;
+        const first = query[0].toLowerCase();
+        const letter = /[a-z]/.test(first) ? first : '_';
+        const data = await fetchJSON(`data/recipients/index_${letter}.json`);
+        if (!data) { showResults([]); return; }
+        const q = query.toUpperCase();
+        const matches = data.filter(e => e.n.toUpperCase().includes(q)).slice(0, 50);
+        showResults(matches.map(e => ({
+            name: e.n,
+            amount: e.t,
+            meta: [partyLabel(e.p), officeLabel(e.o), e.s].filter(Boolean).join(' · ') + ` · ${e.c.toLocaleString()} contributions`,
+            party: e.p,
+            key: e.n.toLowerCase(),
+            type: 'recipient'
+        })));
+    }
+
+    function showResults(items) {
+        const el = document.getElementById('results');
+        document.getElementById('detail').style.display = 'none';
+        if (items.length === 0) {
+            el.innerHTML = '<div class="result-count">No results found</div>';
+            return;
+        }
+        el.innerHTML = `<div class="result-count">${items.length} results</div>` +
+            items.map(item => `
+                <div class="result-item" onclick="showDetail('${item.type}', '${item.key.replace(/'/g, "\\'")}')">
+                    <div class="result-header">
+                        <span class="result-name">${item.name}${item.party ? ' <span class="recipient-party ' + partyClass(item.party) + '">' + partyLabel(item.party) + '</span>' : ''}</span>
+                        <span class="result-amount">${fmt(item.amount)}</span>
+                    </div>
+                    <div class="result-meta">${item.meta}</div>
+                </div>
+            `).join('');
+    }
+
+    async function showDetail(type, key) {
+        const el = document.getElementById('detail');
+        el.style.display = 'block';
+        el.innerHTML = '<div class="loading"><span class="spinner"></span>Loading details...</div>';
+
+        const shard = md5sync(key);
+        const prefix = type === 'employer' ? 'e' : 'r';
+        const data = await fetchJSON(`data/${prefix}/${shard}.json`);
+
+        if (!data || !data[key]) {
+            el.innerHTML = '<div class="detail-panel"><p>Detail not found</p></div>';
+            return;
+        }
+
+        const d = data[key];
+
+        if (type === 'employer') {
+            showEmployerDetail(d);
+        } else {
+            showRecipientDetail(d);
+        }
+
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function showEmployerDetail(d) {
+        const el = document.getElementById('detail');
+        const maxState = d.states && d.states.length > 0 ? d.states[0].count : 1;
+
+        el.innerHTML = `
+            <div class="detail-panel">
+                <div class="detail-header">
+                    <div>
+                        <div class="detail-title">${d.name}</div>
+                        <div class="detail-subtitle">${d.count.toLocaleString()} contributions</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="detail-total">${fmtFull(d.total)}</div>
+                        <button class="close-btn" onclick="document.getElementById('detail').style.display='none'">&times;</button>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Top Recipients</h3>
+                    ${d.recipients.map(r => `
+                        <div class="recipient-row">
+                            <span class="recipient-name">
+                                ${r.name}
+                                ${r.party ? '<span class="recipient-party ' + partyClass(r.party) + '">' + partyLabel(r.party) + '</span>' : ''}
+                                ${r.office ? ' <span style="color:var(--text-dim);font-size:0.8em">' + officeLabel(r.office) + (r.state ? ', ' + r.state : '') + '</span>' : ''}
+                            </span>
+                            <span class="recipient-amount">${fmt(r.total)}</span>
+                            <span class="recipient-count">${r.count.toLocaleString()} gifts</span>
+                        </div>
+                    `).join('')}
+                </div>
+
+                ${d.states && d.states.length > 0 ? `
+                <div class="detail-section">
+                    <h3>Donor States</h3>
+                    ${d.states.map(s => `
+                        <div class="state-bar">
+                            <span class="state-label">${s.state}</span>
+                            <div class="state-fill" style="width: ${Math.max(4, (s.count / maxState) * 200)}px"></div>
+                            <span style="font-size:0.8em;color:var(--text-dim)">${s.count.toLocaleString()}</span>
+                        </div>
+                    `).join('')}
+                </div>` : ''}
+            </div>
+        `;
+    }
+
+    function showRecipientDetail(d) {
+        const el = document.getElementById('detail');
+        const maxEmp = d.employers && d.employers.length > 0 ? d.employers[0].total : 1;
+        const maxState = d.states && d.states.length > 0 ? d.states[0].total : 1;
+
+        el.innerHTML = `
+            <div class="detail-panel">
+                <div class="detail-header">
+                    <div>
+                        <div class="detail-title">
+                            ${d.name}
+                            ${d.party ? '<span class="recipient-party ' + partyClass(d.party) + '">' + partyLabel(d.party) + '</span>' : ''}
+                        </div>
+                        <div class="detail-subtitle">
+                            ${[officeLabel(d.office), d.state, d.cmte_name].filter(Boolean).join(' · ')}
+                            <br>${d.count.toLocaleString()} contributions
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="detail-total">${fmtFull(d.total)}</div>
+                        <button class="close-btn" onclick="document.getElementById('detail').style.display='none'">&times;</button>
+                    </div>
+                </div>
+
+                ${d.employers && d.employers.length > 0 ? `
+                <div class="detail-section">
+                    <h3>Top Employer Sources</h3>
+                    ${d.employers.map(e => `
+                        <div class="recipient-row">
+                            <span class="recipient-name">${e.name}</span>
+                            <span class="recipient-amount">${fmt(e.total)}</span>
+                        </div>
+                    `).join('')}
+                </div>` : ''}
+
+                ${d.states && d.states.length > 0 ? `
+                <div class="detail-section">
+                    <h3>Top Donor States</h3>
+                    ${d.states.map(s => `
+                        <div class="state-bar">
+                            <span class="state-label">${s.state}</span>
+                            <div class="state-fill" style="width: ${Math.max(4, (s.total / maxState) * 200)}px"></div>
+                            <span style="font-size:0.8em;color:var(--text-dim)">${fmt(s.total)}</span>
+                        </div>
+                    `).join('')}
+                </div>` : ''}
+            </div>
+        `;
+    }
+
+    function showZipDetail(zip, d) {
+        const el = document.getElementById('detail');
+        document.getElementById('results').innerHTML = '';
+        el.style.display = 'block';
+
+        el.innerHTML = `
+            <div class="detail-panel">
+                <div class="detail-header">
+                    <div>
+                        <div class="detail-title">Zip Code ${zip}</div>
+                        <div class="detail-subtitle">
+                            ${[d.city, d.state].filter(Boolean).join(', ')}
+                            · ${d.count.toLocaleString()} contributions
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="detail-total">${fmtFull(d.total)}</div>
+                        <button class="close-btn" onclick="document.getElementById('detail').style.display='none'">&times;</button>
+                    </div>
+                </div>
+
+                ${d.recipients && d.recipients.length > 0 ? `
+                <div class="detail-section">
+                    <h3>Top Recipients from This Zip Code</h3>
+                    ${d.recipients.map(r => `
+                        <div class="recipient-row">
+                            <span class="recipient-name">
+                                ${r.name}
+                                ${r.party ? '<span class="recipient-party ' + partyClass(r.party) + '">' + partyLabel(r.party) + '</span>' : ''}
+                            </span>
+                            <span class="recipient-amount">${fmt(r.total)}</span>
+                        </div>
+                    `).join('')}
+                </div>` : ''}
+
+                ${d.donors && d.donors.length > 0 ? `
+                <div class="detail-section">
+                    <h3>Top Individual Donors</h3>
+                    ${d.donors.map(dn => `
+                        <div class="donor-row">
+                            <div class="donor-info">
+                                <div>${dn.n}</div>
+                                <div class="donor-employer">${[dn.e, dn.o].filter(Boolean).join(' · ')}</div>
+                            </div>
+                            <div style="text-align:right">
+                                <span class="recipient-amount">${fmt(dn.t)}</span>
+                                <span class="recipient-count">${dn.c} gifts</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>` : ''}
+            </div>
+        `;
+    }
+
+    // Event listeners
+    document.getElementById('search').addEventListener('input', function(e) {
+        clearTimeout(debounceTimer);
+        const q = e.target.value.trim();
+        if (!q) {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('detail').style.display = 'none';
+            return;
+        }
+        debounceTimer = setTimeout(() => {
+            if (mode === 'employer') searchEmployer(q);
+            else if (mode === 'zip') searchZip(q);
+            else if (mode === 'recipient') searchRecipient(q);
+        }, 200);
+    });
+
+    document.getElementById('search').addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            this.value = '';
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('detail').style.display = 'none';
+        }
+    });
+
+    init();
+    </script>
+</body>
+</html>
